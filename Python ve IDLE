@@ -1,0 +1,71 @@
+# Python ve IDLE Rehberi: `idle.exe` Neden Yoktur, IDLE Nerededir ve Python Dosya Sistemi Nasıl Biçimlenmiştir?
+
+Bu rehber; Python kök dizininde neden bir `idle.exe` dosyası bulunmadığını, IDLE'ın sistem üzerindeki gerçek yerini, Python dosya sistemi hiyerarşisini ve IDLE'ın çalışma dizini (CWD) davranışlarını açıklamaktadır.
+
+---
+
+## 1. Python Kök Dizininde Neden `idle.exe` Bulunmaz?
+
+* **IDLE Derlenmiş Bağımsız Bir Uygulama (`.exe`) Değildir:** Python'ın ana kurulum (kök) dizininde (`sys.prefix`) doğrudan çalıştırılabilir ikili dosyalar olarak `python.exe` ve konsol penceresi açmadan çalışan `pythonw.exe` yer alır. Kök dizinde `idle.exe` adında müstakil bir çalıştırılabilir dosya bulunmaz. IDLE, Python Standart Kütüphanesi içerisindeki `idlelib` paketi ve `tkinter` grafik kütüphanesi kullanılarak doğrudan Python diliyle yazılmış yerleşik bir geliştirme ortamıdır.
+* **Doğrudan Değil, Modül Olarak Çalıştırılır:** Kendi başına derlenmiş bir `.exe` dosyası olmadığı için işletim sistemi IDLE'ı tek başına çift tıklamayla çalıştıramaz. IDLE'ın başlatılması için Python yorumlayıcısının çalıştırılması ve `idlelib` paketinin bir modül olarak çağrılması gerekir. Komut satırından başlatılmak istendiğinde `python -m idlelib` komutunun kullanılma nedeni budur.
+* **Başlat Menüsü Kısayollarının Çalışma Mantığı:** Windows üzerinde Başlat menüsü veya arama çubuğundaki IDLE simgesine tıklandığında, işletim sistemi arka planda penceresiz çalıştırıcı olan `pythonw.exe` dosyasını `idlelib` modülü parametresiyle çağırır (`pythonw.exe -m idlelib`) ve konsol penceresi açmadan grafik arayüzü ekrana getirir.
+
+---
+
+## 2. IDLE Nerededir ve Nasıl Çalışır?
+
+* **Standart Kütüphanedeki Yeri:** IDLE uygulamasının kaynak kodları Python Standart Kütüphanesi içerisinde `Lib/idlelib/` dizininde yer alır.
+* **Komut Satırı Erişimi:** Komut istemcisinden veya terminalden `python -m idlelib` komutu çalıştırılarak doğrudan başlatılabilir.
+* **Süreç Mimarı (GUI ve Subprocess):** IDLE, kullanıcı arayüzü (GUI) ile kod yürütme sürecini (*subprocess*) iki ayrı işletim sistemi süreci olarak çalıştırır. Bu iki süreç birbiriyle dahili yerel ağ soketi (`127.0.0.1`) üzerinden haberleşir.
+
+---
+
+## 3. Python Dosya Sistemi Nasıl Biçimlenmiştir?
+
+Windows üzerinde standart bir Python kurulumu, modülleri ve çalıştırılabilir araçları belirli bir dizin hiyerarşisinde saklar:
+
+```text
+Python Kurulum Dizini (sys.prefix)
+├── python.exe / pythonw.exe   # Ana çalıştırma araçları
+├── Lib/                        # Standart Kütüphane
+│   ├── os.py                   # Standart modüller
+│   ├── idlelib/                # IDLE uygulamasının kaynak kodları
+│   └── site-packages/          # Dışarıdan (pip ile) yüklenen paketler
+└── Scripts/                    # Komut satırı araçları (pip.exe vb.)
+```
+
+* **Ana Kurulum Dizini (`sys.prefix`):** Ana yorumlayıcı olan `python.exe` ve penceresiz çalıştırıcı `pythonw.exe` dosyalarının bulunduğu kök dizindir.
+* **Standart Kütüphane (`Lib/`):** Python ile hazır gelen yerleşik modülleri (örneğin `Lib/os.py`) ve IDLE paketini (`Lib/idlelib/`) barındırır.
+* **Harici Paketler (`Lib/site-packages/`):** `pip` komutuyla yüklenen üçüncü taraf kütüphanelerin ve `.pth` yol yapılandırma dosyalarının saklandığı ana klasördür.
+* **Çalıştırılabilir Araçlar (`Scripts/`):** Yüklenen paketlere ait komut satırı araçlarının (`pip.exe`) tutulduğu dizindir.
+* **Kullanıcı Yapılandırma Alanı (`~/.idlerc/`):** Kullanıcının ev dizininde yer alan ve IDLE'ın özelleştirilmiş ayarlarının saklandığı klasördür.
+* **Modül Arama Sırası (`sys.path`):** Python bir modül çağrıldığında sırasıyla:
+  1. Mevcut Çalışma Dizini (CWD - `''`),
+  2. `PYTHONPATH` çevre değişkeni,
+  3. `Lib/` Standart Kütüphanesi,
+  4. `Lib/site-packages/` harici paket dizinlerini tarlar.
+
+---
+
+## 4. IDLE Neden Dosya Konumunda (CWD) Çalışmadı?
+
+IDLE'ın çalışma dizininde (dosya konumunda) dosyaları bulamaması veya çalışmaması şu teknik nedenlere dayanır:
+
+* **Mevcut Çalışma Dizini (CWD) Uyumsuzluğu:** IDLE kısayoldan açıldığında CWD varsayılan başlangıç dizini olarak kalır. Ancak editör penceresinden **Run Module (F5)** yapıldığında IDLE kabuğu yeniden başlatır (*RESTART*) ve CWD'yi otomatik olarak çalışan `.py` dosyasının bulunduğu klasöre ayarlar.
+* **İsim Çakışması (*Name Shadowing*):** Çalışılan klasörde `random.py` veya `tkinter.py` gibi Standart Kütüphaneyle aynı isimde bir dosya varsa, Python `sys.path` arama sırası gereği önce CWD'ye baktığından gerçek kütüphaneleri yükleyemez ve IDLE çökebilir veya açılmayabilir.
+* **Soket Bağlantı Engelleri:** Arayüz ile alt süreç arasındaki yerel soket (`127.0.0.1`) bağlantısının güvenlik duvarı veya antivirüs tarafından engellenmesi IDLE'ın kapanmasına yol açar.
+* **Bozuk Yapılandırma Dosyaları:** Ev dizinindeki `~/.idlerc/` klasöründe yer alan ayar dosyalarının bozulması IDLE'ın başlatılmasına engel olabilir.
+* **Sistem Akışlarının Sıfırlanması:** Kod içinde `importlib.reload(sys)` yapılması durumunda IDLE'ın yönlendirdiği standart girdi ve çıktı akışları (`sys.stdin`, `sys.stdout`) bozularak girdi/ çıktı hataları oluşur.
+
+---
+
+## 📄 Kaynaklar
+
+Bu rehberdeki bilgiler resmi **Python 3.14.8 Dokümantasyonu** kaynaklarına dayanmaktadır:
+
+1. [4. Using Python on Windows — Python 3.14.8 documentation](https://docs.python.org/3/using/windows.html)
+2. [IDLE — Python editor and shell — Python 3.14.8 documentation](https://docs.python.org/3/library/idle.html)
+
+---
+
+💡 Hazırladığımız bu `README.md` metnine eklemek veya biçiminde değiştirmek istediğiniz başka bir bölüm var mı?
